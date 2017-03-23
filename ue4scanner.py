@@ -10,14 +10,17 @@ bl_info = {
     "category": "Object" 
 }
 
+
 import bpy
 from bpy.props import *
+
 
 def GetContextObjects(useContext):
     if(useContext):
         return bpy.context.selected_objects
     else:
         return null
+   
     
 class Messages(object):
     messages = []
@@ -28,7 +31,7 @@ class Messages(object):
     
     @classmethod
     def clear_messages(self):
-        self.messages = []
+        self.messages[:] = []
         
     @classmethod
     def add_message(self, message):
@@ -38,6 +41,7 @@ class Messages(object):
     def show_messages(self):
         bpy.ops.error.message('INVOKE_DEFAULT', type="Error")
         self.messages[:] = []
+   
     
 class MessageOperator(bpy.types.Operator):
     bl_idname = "error.message"
@@ -52,7 +56,7 @@ class MessageOperator(bpy.types.Operator):
  
     def invoke(self, context, event):
         wm = context.window_manager
-        return wm.invoke_popup(self, width=400, height=600)
+        return wm.invoke_popup(self, width=400, height=700)
  
     def draw(self, context):
         self.layout.label("A message has arrived")
@@ -63,12 +67,45 @@ class MessageOperator(bpy.types.Operator):
         row = self.layout.split(0.80)
         row.label("") 
         row.operator("error.ok")
+  
+        
+class TransformScanMessageOperator(MessageOperator):
+    bl_idname = "error.transformscanmessage"
+    bl_label = "Transform scan message"
+    type = StringProperty()
+    
+    def draw(self, context):
+        self.layout.label("Scanning message")
+        row = self.layout.split(0.25)
+        for message in self.messages:
+            self.layout.label(message)
+            
+        row = self.layout.split(0.40)
+        row.operator("error.ok")
+        row.operator("error.transformapplyok")
+
+        Messages.clear_messages()
+    
     
 class OkOperator(bpy.types.Operator):
     bl_idname = "error.ok"
-    bl_label = "OK"
+    bl_label = "Ok"
+    
     def execute(self, context):
         return {'FINISHED'}
+
+
+class ApplyTransformOperator(bpy.types.Operator):
+    bl_idname = "error.transformapplyok"
+    bl_label = "Apply transforms"
+    
+    def execute(self, context):
+        objects = GetContextObjects(True)
+        for obj in objects:
+            bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+        
+        return {'FINISHED'}
+
 
 class ScanTransformApplied(bpy.types.Operator):
     """Check if the all transforms are applied."""
@@ -97,10 +134,12 @@ class ScanTransformApplied(bpy.types.Operator):
                 Messages.add_message(("%s\'s scale is not set to 1." % obj.name));
             if not self.ScanRotation(obj):
                 Messages.add_message(("%s\'s rotation is not set to 0." % obj.name));
-            
-        Messages.show_messages()        
+         
+        bpy.ops.error.transformscanmessage('INVOKE_DEFAULT', type="Error")   
+        #Messages.show_messages()        
     
         return {'FINISHED'}
+  
         
 class AppliedPanel(bpy.types.Panel):
     bl_label = "Unreal Engine 4 Scanner"
@@ -113,15 +152,24 @@ class AppliedPanel(bpy.types.Panel):
         layout.operator("object.scantransform")
         layout.prop
 
+
 def register():
     bpy.utils.register_class(AppliedPanel)
     bpy.utils.register_class(ScanTransformApplied)
     bpy.utils.register_class(MessageOperator)
+    bpy.utils.register_class(ApplyTransformOperator)
+    bpy.utils.register_class(OkOperator)
+    bpy.utils.register_class(TransformScanMessageOperator)
+
 
 def unregister():
     bpy.utils.unregister_class(AppliedPanel)
     bpy.utils.unregister_class(ScanTransformApplied)
     bpy.utils.unregister_class(MessageOperator)
+    bpy.utils.unregister_class(ApplyTransformOperator)
+    bpy.utils.unregister_class(OkOperator)
+    bpy.utils.unregister_class(TransformScanMessageOperator)
+
 
 if __name__ == "__main__":
     register()
